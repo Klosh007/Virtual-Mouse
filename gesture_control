@@ -1,0 +1,77 @@
+import cv2
+import mediapipe as mp
+import pyautogui
+
+# Initialize webcam
+cap = cv2.VideoCapture(0)  # Use camera (0 for default camera)
+
+# Initialize MediaPipe Hands
+hand_detector = mp.solutions.hands.Hands(
+    max_num_hands=1, 
+    min_detection_confidence=0.7, 
+    min_tracking_confidence=0.7
+)
+drawing_utils = mp.solutions.drawing_utils
+
+# Initialize pyautogui
+screen_width, screen_height = pyautogui.size()  # Get screen size for mouse movement
+smoothening = 7  # Smoothing factor for smoother mouse movements
+
+# Initialize previous coordinates for smooth movement
+prev_x, prev_y = 0, 0
+
+# Main loop to capture and process camera frames
+while True:
+    success, frame = cap.read()
+    if not success:
+        print("Failed to capture image")
+        break
+
+    # Flip the frame horizontally for better user interaction
+    frame = cv2.flip(frame, 1)
+    
+    # Get frame dimensions
+    frame_height, frame_width, _ = frame.shape
+
+    # Convert the BGR frame to RGB for MediaPipe processing
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    # Process the frame to get hand landmarks
+    output = hand_detector.process(rgb_frame)
+    hands = output.multi_hand_landmarks  # List of detected hands
+
+    # If hands are detected, process each hand
+    if hands:
+        for hand_landmarks in hands:
+            # Draw hand landmarks on the frame
+            drawing_utils.draw_landmarks(frame, hand_landmarks)
+            landmarks = hand_landmarks.landmark
+
+            # Get Index and Thumb Tip (ID: 8 for index, ID: 4 for thumb)
+            index_finger = landmarks[8]
+            thumb_finger = landmarks[4]
+            
+            # Convert normalized coordinates to pixel coordinates
+            index_x = int(index_finger.x * frame_width)
+            index_y = int(index_finger.y * frame_height)
+
+            # Smoothing for mouse movement
+            curr_x = prev_x + (index_x - prev_x) / smoothening
+            curr_y = prev_y + (index_y - prev_y) / smoothening
+
+            # Move the mouse to the calculated coordinates
+            pyautogui.moveTo(curr_x * screen_width / frame_width, curr_y * screen_height / frame_height)
+
+            # Update previous coordinates for the next frame
+            prev_x, prev_y = curr_x, curr_y
+
+    # Display the frame with hand landmarks
+    cv2.imshow("Hand Landmarks and Mouse Control", frame)
+
+    # Break the loop if 'q' key is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release resources when done
+cap.release()
+cv2.destroyAllWindows()
