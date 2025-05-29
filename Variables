@@ -1,0 +1,4 @@
+
+prev_x, prev_y = 0, 0
+smoothening = 5
+dragging = False
